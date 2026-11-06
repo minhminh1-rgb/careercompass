@@ -1,0 +1,10 @@
+# Private business brief (kept local, not published)
+Document.docx
+~$*.docx
+
+# OS / editor clutter
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+*.log
