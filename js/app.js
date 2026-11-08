@@ -4,14 +4,18 @@
   const D = CC.data;
   const E = CC.engine;
   const KEY = 'careercompass-demo-v1';
-  const ROUTES = ['onboarding', 'skills', 'time', 'plan', 'dashboard', 'specialist'];
+  const ROUTES = ['onboarding', 'skills', 'time', 'plan', 'dashboard', 'courses', 'data', 'specialist'];
+  // Once a timetable exists, these routes live inside the sidebar layout instead of the step bar.
+  const MEMBER = ['dashboard', 'courses', 'data', 'specialist'];
   const STEPS = [
     { route: 'onboarding', n: 1, label: 'Profile' },
     { route: 'skills', n: 2, label: 'Skills' },
     { route: 'time', n: 3, label: 'Time & package' },
     { route: 'plan', n: 4, label: 'Plan' },
-    { route: 'dashboard', n: 5, label: 'Track' },
+    { route: 'dashboard', n: 5, label: 'Dashboard' },
   ];
+  const PROVIDER = { google: 'Google Calendar', outlook: 'Outlook' };
+  const FORMAT_LABEL = { video: 'Express · short videos & quizzes', project: 'Guided project with feedback', live: 'Live small-group cohort' };
 
   const defaults = () => ({
     tier: 'gold',
@@ -40,6 +44,9 @@
     replans: {},
     log: [],
     specialist: { stage: 'intro', consent: 'record', proposals: [], form: {} },
+    navCollapsed: false,
+    mentors: [],
+    calExport: {},
   });
 
   /* ---------- State ---------- */
@@ -88,11 +95,34 @@
     setTimeout(() => el.remove(), 3800);
   }
 
+  /* ---------- Icons (inline SVG, inherit currentColor) ---------- */
+  const ICONS = {
+    menu: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+    home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/>',
+    book: '<path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3z"/><path d="M21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12z"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+    reset: '<path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/>',
+    cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    chev: '<path d="m9 6 6 6-6 6"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+  };
+  const icon = (n) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
+
   /* ---------- Routing ---------- */
+  // Hash format: #route or #route/param (e.g. #courses/python-data-project)
+  function parseHash() {
+    const [r, p] = location.hash.replace('#', '').split('/');
+    let param = null;
+    try { param = p ? decodeURIComponent(p) : null; } catch (e) { param = null; }
+    return { r, param };
+  }
   function route() {
-    const r = location.hash.replace('#', '');
+    const { r } = parseHash();
     return ROUTES.includes(r) ? r : (S.tt ? 'dashboard' : 'onboarding');
   }
+  const routeParam = () => parseHash().param;
   function go(r) {
     if (location.hash === '#' + r) { render(); window.scrollTo(0, 0); } else location.hash = r;
   }
@@ -104,7 +134,9 @@
       case 'skills': return !!S.brainResult && !!S.trial;
       case 'time': return ready('skills') && S.selectedSkills.length > 0;
       case 'plan': return ready('time') && S.hours != null;
-      case 'dashboard': return !!S.tt;
+      case 'dashboard':
+      case 'courses':
+      case 'data': return !!S.tt;
       case 'specialist': return !!S.brainResult;
       default: return false;
     }
@@ -118,7 +150,7 @@
       default: return false;
     }
   }
-  const PREV = { skills: 'onboarding', time: 'skills', plan: 'time', dashboard: 'plan', specialist: 'onboarding' };
+  const PREV = { skills: 'onboarding', time: 'skills', plan: 'time', dashboard: 'plan', courses: 'plan', data: 'plan', specialist: 'onboarding' };
   const LABEL = { onboarding: 'onboarding', skills: 'skill selection', time: 'time & package', plan: 'plan building', dashboard: 'tracking' };
 
   function locked(r) {
@@ -136,9 +168,33 @@
   const view = document.getElementById('view');
   function render() {
     const r = route();
-    view.innerHTML = ready(r) ? SCREENS[r]() : locked(r);
+    const member = !!S.tt && MEMBER.includes(r);
+    document.body.classList.toggle('is-member', member);
+    const html = ready(r) ? SCREENS[r]() : locked(r);
+    view.innerHTML = member ? memberShell(r, html) : html;
     renderChrome(r);
     save();
+  }
+
+  // Sidebar layout shown after setup (Dashboard · Courses · Your data · Specialist).
+  const NAV = [
+    { r: 'dashboard', label: 'Dashboard', icon: 'home' },
+    { r: 'courses', label: 'Courses', icon: 'book' },
+    { r: 'data', label: 'Your data', icon: 'user' },
+    { r: 'specialist', label: 'Specialist', icon: 'chat' },
+  ];
+  function memberShell(r, html) {
+    const c = S.navCollapsed;
+    return `<div class="member ${c ? 'nav-collapsed' : ''}">
+      <nav class="sidenav" aria-label="Main">
+        <button type="button" class="nav-item nav-toggle" data-action="toggleNav" aria-expanded="${!c}" title="${c ? 'Show menu' : 'Hide menu'}">${icon('menu')}<span>${c ? 'Show menu' : 'Hide menu'}</span></button>
+        ${NAV.map((n) => `<a class="nav-item ${n.r === r ? 'is-active' : ''}" href="#${n.r}" ${n.r === r ? 'aria-current="page"' : ''} title="${n.label}">${icon(n.icon)}<span>${n.label}</span></a>`).join('')}
+        <div class="nav-spacer"></div>
+        <a class="nav-item nav-sub" href="#skills" title="Edit my plan">${icon('edit')}<span>Edit my plan</span></a>
+        <button type="button" class="nav-item nav-sub" data-action="reset" title="Reset demo">${icon('reset')}<span>Reset demo</span></button>
+      </nav>
+      <div class="member-main">${html}</div>
+    </div>`;
   }
 
   function renderChrome(r) {
@@ -390,15 +446,10 @@
             <span class="hint">What you'd like to do. We'll check whether it's realistic.</span></div>
         </div>
         <div class="card">
-          <h3>Sync calendars</h3>
-          <p class="muted small">${t.name} plan: ${t.calendars >= 3 ? 'multiple calendars' : t.calendars + ' calendar' + (t.calendars > 1 ? 's' : '')}${t.buffer ? ' + buffer for unexpected events' : ''}.</p>
-          <div class="stack">
-            ${D.CAL_SOURCES.map((c) => {
-              const on = S.synced.includes(c.id);
-              return `<div class="row"><span class="swatch sw-${c.type}"></span><span><strong>${c.name}</strong> <span class="muted small">(${c.provider})</span></span><span class="spacer"></span>
-                <button type="button" class="btn btn-sm ${on ? 'btn-ghost' : 'btn-soft'}" data-action="sync" data-id="${c.id}">${on ? 'Disconnect' : 'Sync (demo)'}</button></div>`;
-            }).join('')}
-          </div>
+          <h3>Connect Google Calendar &amp; Outlook</h3>
+          <p class="muted small">${t.name} plan: ${t.calendars >= 3 ? 'multiple calendars' : t.calendars + ' calendar' + (t.calendars > 1 ? 's' : '')}${t.buffer ? ' + buffer for unexpected events' : ''}. We only read when you're busy.</p>
+          <div class="cal-rows">${D.CAL_SOURCES.map(calRow).join('')}</div>
+          <p class="muted tiny" style="margin:8px 0 0">Demo: connecting loads sample events. Your study plan can be added to your real Google Calendar or Outlook once it's built.</p>
           <label class="switch" style="margin-top:16px"><input type="checkbox" data-bind="hideDetails" data-bool data-rerender ${S.hideDetails ? 'checked' : ''}> Black out private event details</label>
           <p class="muted tiny" style="margin:6px 0 0">When on, the AI only sees that you're busy, never what the event is.</p>
         </div>
@@ -436,6 +487,18 @@
         </div>
       </div>
     </section>`;
+  }
+
+  // One connectable calendar (Phase 3, connect modal, Your data).
+  function calRow(c) {
+    const on = S.synced.includes(c.id);
+    const prov = c.provider === 'Google' ? 'google' : 'outlook';
+    return `<div class="cal-row">
+      <span class="prov prov-${prov}">${icon('cal')}</span>
+      <span class="cal-row-text"><strong>${PROVIDER[prov]}</strong> <span class="muted small">· ${esc(c.name)}</span><br>
+        <span class="tiny ${on ? 'ok' : 'muted'}">${on ? '✓ Connected · busy times imported' : 'Not connected'}</span></span>
+      <button type="button" class="btn btn-sm ${on ? 'btn-ghost' : 'btn-soft'}" data-action="sync" data-id="${c.id}">${on ? 'Disconnect' : 'Connect'}</button>
+    </div>`;
   }
 
   function calendarGrid() {
@@ -576,17 +639,32 @@
     const hasCourses = tt.courses.some((c) => c.kind === 'course');
     const sel = S.selected && tt.sessions.find((s) => s.id === S.selected);
 
+    const first = S.user.name.trim() ? S.user.name.trim().split(/\s+/)[0] : '';
+
     return `<section class="screen">
-      <div class="screen-head row">
-        <div>
-          <p class="eyebrow">Progress tracking</p>
-          <h1>${esc(S.user.name ? S.user.name.split(' ')[0] + '\'s' : 'Your')} learning plan</h1>
-          <p>Starts ${E.fmtDate(new Date(tt.start))} · ${hasCourses ? `finish by <strong>${E.fmtDate(E.endDate(tt))}</strong>` : 'no courses yet'} · ${hrs(tt.hours || S.hours || 0)}/week</p>
-        </div>
+      <div class="screen-head greet">
+        <h1>Hi${first ? ', ' + esc(first) : ''} <span class="wave" aria-hidden="true">👋</span></h1>
+        <p>Welcome to your CareerCompass launchpad for stress-free upskilling.</p>
+        <p class="small">Started ${E.fmtDate(new Date(tt.start))} · ${hasCourses ? `finish by <strong>${E.fmtDate(E.endDate(tt))}</strong>` : 'no courses yet'} · ${hrs(tt.hours || S.hours || 0)}/week</p>
       </div>
 
       ${S.notice ? `<div class="notice notice-${S.notice.type}" role="status"><p>${S.notice.html}</p><button class="x" data-action="dismissNotice" aria-label="Dismiss" type="button">×</button></div>` : ''}
       ${tt.shortfall ? `<div class="notice notice-warn"><p>Your calendar only had room for part of your weekly plan (${tt.shortfall} session${tt.shortfall > 1 ? 's' : ''} short). Free up time in Phase 3 for a faster finish.</p></div>` : ''}
+
+      ${heroCard(next)}
+
+      <div class="home-row">
+        <div class="home-courses">
+          <div class="row-head">
+            <h2>My courses</h2>
+            <span class="spacer"></span>
+            <a class="icon-btn" href="#plan" title="Edit courses" aria-label="Edit courses">${icon('edit')}</a>
+            <button class="btn btn-sm" data-action="openAddCourse" type="button">${icon('plus')} Add course</button>
+          </div>
+          ${myCourses()}
+        </div>
+        ${studyPlan()}
+      </div>
 
       <div class="grid-4">
         <div class="card kpi"><div class="label">Overall progress</div><div class="value">${P.pct}%</div><div class="bar"><span style="width:${P.pct}%"></span></div></div>
@@ -608,7 +686,7 @@
       </div>
 
       <div class="dash">
-        <div class="card">
+        <div class="card" id="timetable">
           <div class="row" style="margin-bottom:10px"><h3 style="margin:0">Timetable</h3><span class="spacer"></span>
             <span class="muted small">${sel ? 'Moving: click a highlighted free slot' : 'Click a session to edit or move it'}</span></div>
           <div class="week-tabs" role="tablist" aria-label="Weeks">
@@ -638,6 +716,113 @@
         </aside>
       </div>
     </section>`;
+  }
+
+  const shortDate = (ts) => new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+  // Dashboard hero: first ask to put the plan in a real calendar, then show what's up next.
+  function heroCard(next) {
+    const tt = S.tt;
+    const ex = S.calExport || {};
+    if (!ex.google && !ex.outlook) {
+      return `<div class="card hero-card">
+        <div class="hero-copy">
+          <h3>Put your plan in your calendar</h3>
+          <p class="muted">Add every study session to Google Calendar or Outlook, with a reminder 30 minutes before. Sessions sit only in time your calendar shows as free.</p>
+          <div class="row">
+            <button class="btn" data-action="exportCal" data-provider="google" type="button">${icon('cal')} Add to Google Calendar</button>
+            <button class="btn btn-ghost" data-action="exportCal" data-provider="outlook" type="button">${icon('cal')} Add to Outlook</button>
+          </div>
+          <button class="link-btn small" data-action="openConnect" type="button">Connect calendars to import busy times →</button>
+        </div>
+        ${heroArt()}
+      </div>`;
+    }
+    const status = ['google', 'outlook'].filter((p) => ex[p]).map((p) => `Exported to ${PROVIDER[p]} · ${shortDate(ex[p])}`).join(' · ');
+    const reexport = `<button class="link-btn" data-action="exportCal" data-provider="${ex.google ? 'google' : 'outlook'}" type="button">Export again after changes</button>`;
+    if (!next) {
+      return `<div class="card hero-card"><div class="hero-copy">
+        <p class="eyebrow">All caught up</p><h3>Every planned session is complete</h3>
+        <p class="muted">Add another course to keep going, or talk to a specialist about what's next.</p>
+        <div class="row"><button class="btn" data-action="openAddCourse" type="button">${icon('plus')} Add course</button><a class="btn btn-ghost" href="#specialist">Talk to a specialist</a></div>
+        <p class="muted tiny" style="margin:12px 0 0">${status}</p>
+      </div>${heroArt()}</div>`;
+    }
+    const c = E.courseOf(tt, next);
+    const studyable = c.kind === 'course';
+    return `<div class="card hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">Up next</p>
+        <h3>${esc(c.name)}</h3>
+        <p class="muted">${E.fmtSlot(tt, next)} · ${next.minutes} min${next.moved ? ' · replanned' : ''}</p>
+        <div class="row">
+          ${studyable ? `<a class="btn" href="#courses/${encodeURIComponent(c.id)}">Start studying</a>` : `<button class="btn" data-action="markDone" data-id="${next.id}" type="button">Mark done</button>`}
+          <a class="btn btn-ghost btn-sm" href="${esc(CC.cal.googleLink(tt, next))}" target="_blank" rel="noopener">+ Google Calendar</a>
+          <a class="btn btn-ghost btn-sm" href="${esc(CC.cal.outlookLink(tt, next))}" target="_blank" rel="noopener">+ Outlook</a>
+        </div>
+        <p class="muted tiny" style="margin:12px 0 0">${status} · ${reexport}</p>
+      </div>
+      ${heroArt()}
+    </div>`;
+  }
+
+  function heroArt() {
+    return `<svg class="hero-art" viewBox="0 0 230 160" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <g transform="rotate(-7 90 90)">
+        <rect x="34" y="34" width="116" height="104" rx="12" class="ha-paper"/>
+        <path d="M34 50a12 12 0 0 1 12-16h92a12 12 0 0 1 12 12v16H34z" class="ha-band"/>
+        <path d="M62 24v20M122 24v20"/>
+        <path d="m50 80 6 6 10-12"/><path d="m86 80 6 6 10-12"/><rect x="120" y="72" width="16" height="16" rx="4"/>
+        <rect x="48" y="104" width="16" height="16" rx="4"/><path d="m86 112 6 6 10-12"/><rect x="120" y="104" width="16" height="16" rx="4" class="ha-fill"/>
+      </g>
+      <g transform="translate(180 104)">
+        <circle r="32" class="ha-paper"/>
+        <circle r="24" stroke-dasharray="2 7"/>
+        <path d="M0-20 7 0H-7z" class="ha-needle"/>
+        <path d="M0 20-7 0H7z"/>
+        <circle r="3" fill="currentColor"/>
+      </g>
+      <path d="M190 18v14M183 25h14"/><path d="M18 120v12M12 126h12"/><circle cx="214" cy="52" r="3"/><circle cx="20" cy="40" r="2.5"/>
+    </svg>`;
+  }
+
+  function myCourses() {
+    const tt = S.tt;
+    const list = tt.courses.filter((c) => c.kind === 'course');
+    if (!list.length) return '<div class="card card-flat"><p class="muted" style="margin:0">No courses yet. Add one to get started.</p></div>';
+    const P = E.progress(tt);
+    return `<div class="course-tiles">${list.map((c) => courseTile(c, P)).join('')}</div>`;
+  }
+
+  function courseTile(c, P) {
+    const L = E.lessonsFor(S.tt, c);
+    const pc = P.perCourse.find((x) => x.id === c.id) || { pct: 0 };
+    const fin = L.done >= L.total;
+    return `<a class="card course-tile" href="#courses/${encodeURIComponent(c.id)}">
+      <span class="tile-top sw-c${c.color}"></span>
+      <strong>${esc(c.name)}</strong>
+      <span class="muted small">${esc(FORMAT_LABEL[E.formatOf(c)])}</span>
+      <div class="bar c${c.color}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pc.pct}" aria-label="${esc(c.name)} progress"><span style="width:${pc.pct}%"></span></div>
+      <span class="tile-foot"><span class="muted small">${fin ? 'Completed' : `Lesson ${L.done + 1} of ${L.total} · ${pc.pct}%`}</span><span class="tile-cta">${fin ? 'Review' : L.done ? 'Continue' : 'Start'} ${icon('chev')}</span></span>
+    </a>`;
+  }
+
+  function studyPlan() {
+    const tt = S.tt;
+    const up = tt.sessions.filter((s) => s.status === 'planned').sort((a, b) => E.sortKey(a) - E.sortKey(b)).slice(0, 6);
+    let lastDay = '';
+    const rows = up.map((s) => {
+      const c = E.courseOf(tt, s);
+      const day = E.dateOf(tt, s.week, s.day).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+      const head = day !== lastDay ? `<li class="sp-day">${day}</li>` : '';
+      lastDay = day;
+      const href = c.kind === 'course' ? `#courses/${encodeURIComponent(c.id)}` : '#courses';
+      return `${head}<li><a class="sp-item" href="${href}"><span class="swatch sw-c${c.color}"></span><span class="sp-time">${pad(s.hour)}</span><span class="sp-name">${esc(c.name)}<span class="muted tiny">${s.minutes} min${s.moved ? ' · replanned' : ''}</span></span>${icon('chev')}</a></li>`;
+    }).join('');
+    return `<div class="card studyplan">
+      <div class="row"><h3 style="margin:0">Study plan</h3><span class="spacer"></span><button class="link-btn small" data-action="toTimetable" type="button">Full timetable</button></div>
+      <ul>${rows || '<li class="muted small">All planned sessions are complete.</li>'}</ul>
+    </div>`;
   }
 
   function timetableGrid(week) {
@@ -682,6 +867,7 @@
         <button class="btn btn-warn btn-sm" data-action="markMissed" data-id="${s.id}" type="button">I missed this</button>` : ''}
         <button class="btn btn-ghost btn-sm" data-action="deselect" type="button">Cancel</button>
       </div>
+      ${s.status !== 'done' ? `<p class="small" style="margin:12px 0 0">Add this session: <a href="${esc(CC.cal.googleLink(tt, s))}" target="_blank" rel="noopener">Google Calendar</a> · <a href="${esc(CC.cal.outlookLink(tt, s))}" target="_blank" rel="noopener">Outlook</a></p>` : ''}
     </div>`;
   }
 
@@ -694,9 +880,7 @@
     if (t.motivation === 'basic') {
       return bars + '<div class="card upsell"><p class="small muted" style="margin:0"><span class="lock">Gold adds payoff insights &amp; reminders. Platinum adds weekly check-ins and recovery coaching.</span></p></div>';
     }
-    const lvl = Object.values(S.selfCheck).reduce((a, v) => a + v, 0);
-    const startMatch = Math.min(55, 30 + lvl * 3);
-    const nowMatch = Math.round(startMatch + (P.pct / 100) * (92 - startMatch));
+    const { startMatch, nowMatch } = payoff(P);
     let html = bars + `<div class="card">
       <h3>Payoff insight</h3>
       <p class="muted small" style="margin-bottom:4px">Estimated match to job postings for your goal: ${esc(goal().label.toLowerCase())}</p>
@@ -716,6 +900,14 @@
         </div></div>`;
     }
     return html;
+  }
+
+  // Estimated match to job postings (illustrative): shared by the dashboard and Your data.
+  function payoff(P) {
+    const lvl = Object.values(S.selfCheck).reduce((a, v) => a + v, 0);
+    const startMatch = Math.min(55, 30 + lvl * 3);
+    const nowMatch = Math.round(startMatch + (P.pct / 100) * (92 - startMatch));
+    return { startMatch, nowMatch };
   }
 
   function handleMiss(id) {
@@ -762,6 +954,450 @@
     const cur = (E.nextSession(tt) || s).week;
     E.extendPlan(tt, S.calendar, Math.min(tier().weeks + cur - 1, 520));
     render();
+  }
+
+  /* ======================================================================
+     Courses: enrolled courses + course player
+     ====================================================================== */
+  let study = null;     // { course, idx }: lesson open in the player (UI only)
+  let studyTab = null;  // active material tab
+  let quizPick = null;  // { key, v }: answer picked in the quiz
+  let addPick = null;   // skill picked in the "Add course" modal
+
+  const article = (w) => (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w;
+  const mmss = (min) => { const s = Math.round(min * 60); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
+  const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+
+  function scrCourses() {
+    const id = routeParam();
+    const c = id && S.tt.courses.find((x) => x.id === id && x.kind === 'course');
+    return c ? coursePlayer(c) : courseList();
+  }
+
+  function courseList() {
+    const tt = S.tt;
+    const b = S.brainResult;
+    const P = E.progress(tt);
+    const list = tt.courses.filter((c) => c.kind === 'course');
+    const sp = tt.courses.filter((c) => c.kind === 'specialist');
+    return `<section class="screen">
+      <div class="screen-head">
+        <p class="eyebrow">Courses</p>
+        <h1>Your courses</h1>
+        <p>Every lesson comes as a video, reading notes, a hands-on task, a quiz, flashcards and an audio summary. The formats that suit your brain come first: <strong>${esc(STYLE_LABEL[b.style].toLowerCase())}</strong>, in ${b.session}-minute sessions.</p>
+      </div>
+      <div class="row-head"><h2>Enrolled</h2><span class="spacer"></span><button class="btn btn-sm" data-action="openAddCourse" type="button">${icon('plus')} Add course</button></div>
+      ${list.length ? `<div class="course-tiles">${list.map((c) => courseTile(c, P)).join('')}</div>` : '<div class="card card-flat"><p class="muted" style="margin:0">No courses yet. Add one to get started.</p></div>'}
+      ${sp.length ? `<div>
+        <h2>From your specialist</h2>
+        <div class="card"><ul class="plain-list">${sp.map((c) => {
+          const n = E.nextSessionOf(tt, c.id);
+          const pc = P.perCourse.find((x) => x.id === c.id) || { pct: 0 };
+          return `<li class="row"><span class="swatch sw-c3"></span><span><strong>${esc(c.name)}</strong><br><span class="muted small">${pc.pct}% done${n ? ' · next ' + E.fmtSlot(tt, n) : ''}</span></span><span class="spacer"></span>
+            ${n ? `<button class="btn btn-soft btn-sm" data-action="markDone" data-id="${n.id}" type="button">Mark next session done</button>` : '<span class="chip chip-good">Done</span>'}</li>`;
+        }).join('')}</ul></div>
+      </div>` : ''}
+    </section>`;
+  }
+
+  function coursePlayer(c) {
+    const tt = S.tt;
+    const b = S.brainResult;
+    const L = E.lessonsFor(tt, c);
+    const skill = skillById(c.skillId) || { name: c.name, role: '', why: '' };
+    const fin = L.done >= L.total;
+    if (!study || study.course !== c.id || study.idx >= L.total) {
+      study = { course: c.id, idx: Math.min(L.done, L.total - 1) };
+      quizPick = null;
+    }
+    const les = L.list[study.idx];
+    const mats = E.materialsFor(b, c);
+    if (!mats.some((m) => m.id === studyTab)) studyTab = mats[0].id;
+    const mat = mats.find((m) => m.id === studyTab);
+    const pct = (E.progress(tt).perCourse.find((x) => x.id === c.id) || { pct: 0 }).pct;
+
+    const outline = L.topics.map(([title], m) => {
+      const items = L.list.filter((l) => l.module === m);
+      if (!items.length) return '';
+      const doneN = items.filter((l) => l.done).length;
+      const all = doneN === items.length;
+      return `<li><details class="mod" ${items.some((l) => l.idx === les.idx) ? 'open' : ''}>
+        <summary><span class="mod-n ${all ? 'is-done' : ''}">${all ? '✓' : m + 1}</span><span class="mod-t">${esc(title)}</span><span class="muted tiny">${doneN}/${items.length}</span></summary>
+        <ol>${items.map((l) => `<li><button type="button" class="lesson ${l.done ? 'is-done' : ''} ${l.idx === les.idx ? 'is-open' : ''}" data-action="openLesson" data-idx="${l.idx}" ${l.idx === les.idx ? 'aria-current="true"' : ''}>
+          <span class="l-dot">${l.done ? '✓' : ''}</span>Part ${l.part}${l.current ? ' <span class="chip chip-accent">Up next</span>' : ''}</button></li>`).join('')}</ol>
+      </details></li>`;
+    }).join('');
+
+    const fit = [
+      `${les.minutes}-min session · fits your ${b.focus}-min focus span`,
+      b.time === 'varies' ? 'Flexible timing · fits around your week' : `${TIME_LABEL[b.time]} · your best focus time`,
+      `${STYLE_LABEL[b.style]} first · how you learn best`,
+    ];
+    if (b.burnout !== 'low') fit.push(`Low-energy options · ${b.burnout} burnout risk`);
+
+    return `<section class="screen">
+      <a class="back-link small" href="#courses">← All courses</a>
+      <div class="screen-head">
+        <p class="eyebrow">${esc(skill.name)}</p>
+        <h1>${esc(c.name)}</h1>
+        <div class="course-progress"><div class="bar c${c.color}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Course progress"><span style="width:${pct}%"></span></div>
+          <span class="muted small">${L.done} of ${L.total} lessons · ${pct}%</span></div>
+      </div>
+      <div class="player">
+        <aside class="card outline" aria-label="Lessons"><h3>Lessons</h3><ol class="mods">${outline}</ol></aside>
+        <div class="player-main">
+          <article class="card lesson-card">
+            <p class="eyebrow">Module ${les.module + 1} · Part ${les.part} of ${les.parts}</p>
+            <h2>${esc(les.title)}</h2>
+            <div class="chips fit">${fit.map((f) => `<span class="chip">${esc(f)}</span>`).join('')}</div>
+            <div class="mat-tabs" role="tablist" aria-label="Study materials">
+              ${mats.map((m) => `<button type="button" role="tab" id="tab-${m.id}" aria-selected="${m.id === studyTab}" aria-controls="matPanel" class="mat-tab ${m.id === studyTab ? 'is-active' : ''}" data-action="studyTab" data-id="${m.id}">${esc(m.label)}${m.recommended ? '<span class="tab-badge">For you</span>' : m.lowEnergy ? '<span class="tab-badge low">Low energy</span>' : ''}</button>`).join('')}
+            </div>
+            ${mat.why ? `<p class="mat-why small">${esc(mat.why)}</p>` : ''}
+            <div class="mat-body" id="matPanel" role="tabpanel" aria-labelledby="tab-${mat.id}">${material(mat.id, les, L, c, skill)}</div>
+          </article>
+          ${lessonFooter(c, les, L, fin)}
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function material(id, les, L, c, skill) {
+    const b = S.brainResult;
+    const tt = S.tt;
+    const role = (S.profile.title || 'professional').toLowerCase();
+    switch (id) {
+      case 'video': {
+        const len = Math.max(6, Math.round(les.minutes * 0.35));
+        const ch = [[0, `Why it matters for ${article(role)}`], [len * 0.2, les.title], [len * 0.55, 'Worked example'], [len * 0.85, 'Recap & your next step']];
+        return `<div class="video-mock">
+            <button type="button" class="play" data-action="playDemo" aria-label="Play video: ${esc(les.title)}">${PLAY_SVG}</button>
+            <span class="v-title">${esc(les.title)}</span><span class="v-len">${mmss(len)}</span>
+          </div>
+          <ol class="chapters">${ch.map(([t, l]) => `<li><span class="muted">${mmss(t)}</span>${esc(l)}</li>`).join('')}</ol>
+          <p class="muted tiny" style="margin:0">Demo: video playback isn't included in the prototype.</p>`;
+      }
+      case 'reading':
+        return `<div class="reading">
+          <h4>Key idea</h4><p>${esc(les.idea)}</p>
+          <h4>In your role as ${esc(article(role))}</h4><p>${esc(skill.role)}</p>
+          <h4>Why it matters</h4><p>${esc(skill.why)}</p>
+          <h4>Try this</h4><p>Note one place in your week where “${esc(les.title.toLowerCase())}” could save you time. You'll use it in the hands-on task.</p>
+        </div>`;
+      case 'task': {
+        const job = (S.profile.tasks || '').split(/[,;\n]/)[0].trim();
+        const steps = [
+          `Pick one real task from your work${job ? `, for example: ${job.charAt(0).toLowerCase() + job.slice(1)}` : ''}.`,
+          `Apply today's idea to it: ${les.idea}`,
+          `Write three sentences on what changed and save them. They become evidence for your ${goal().noun}.`,
+        ];
+        return `<p class="small muted">About ${Math.max(10, les.minutes - 10)} minutes. Tick each step as you go.</p>
+          <div class="task-steps">${steps.map((s, i) => `<label class="check-item"><input type="checkbox"><span><strong>Step ${i + 1}</strong><br><span class="small">${esc(s)}</span></span></label>`).join('')}</div>`;
+      }
+      case 'quiz': {
+        const key = c.id + ':' + les.idx;
+        const pick = quizPick && quizPick.key === key ? quizPick.v : null;
+        const n = L.topics.length;
+        const pool = [les.module, (les.module + 1) % n, (les.module + 2) % n].filter((v, i, a) => a.indexOf(v) === i);
+        const rot = les.idx % pool.length;
+        const order = pool.slice(rot).concat(pool.slice(0, rot));
+        const right = pick === les.module;
+        return `<p class="small muted">Quick check · instant feedback</p>
+          <h4 class="quiz-q">Which of these is the key idea of “${esc(les.title)}”?</h4>
+          <div class="options">${order.map((i) => {
+            let cls = '';
+            if (pick != null) cls = i === les.module ? 'is-right' : i === pick ? 'is-wrong' : 'is-dim';
+            return `<button type="button" class="option ${cls}" data-action="quiz" data-key="${esc(key)}" data-v="${i}" ${pick != null ? 'aria-disabled="true"' : ''}><span class="quiz-a">${esc(L.topics[i][1])}</span></button>`;
+          }).join('')}</div>
+          ${pick != null ? `<div class="notice ${right ? 'notice-good' : 'notice-warn'}" role="status" style="margin-top:12px"><p>${right ? '<strong>Correct!</strong> That idea is yours now.' : '<strong>Not quite.</strong> The highlighted answer is the key idea. Have another look at the reading notes.'} <button class="link-btn" data-action="quizReset" type="button">Try again</button></p></div>` : ''}`;
+      }
+      case 'cards':
+        return `<p class="small muted">Tap a card to flip it. ${L.topics.length} cards cover the whole course.</p>
+          <div class="flashcards">${L.topics.map(([t, idea], i) => `<button type="button" class="flashcard ${i === les.module ? 'is-current' : ''}" data-action="flip" aria-pressed="false">
+            <span class="fc-front"><span class="tiny muted">Module ${i + 1}${i === les.module ? ' · this lesson' : ''}</span><strong>${esc(t)}</strong><span class="tiny muted">Tap to reveal</span></span>
+            <span class="fc-back">${esc(idea)}</span></button>`).join('')}</div>`;
+      case 'audio': {
+        const len = Math.max(4, Math.round(les.minutes * 0.15));
+        return `<div class="audio-mock">
+            <button type="button" class="play sm" data-action="playDemo" aria-label="Play audio summary">${PLAY_SVG}</button>
+            <div class="audio-track"><span class="small"><strong>${esc(les.title)}</strong> · audio summary</span><div class="bar"><span style="width:0%"></span></div><span class="tiny muted">00:00 / ${mmss(len)}</span></div>
+          </div>
+          <h4 class="mini-h">Transcript</h4>
+          <p class="small">${esc(les.idea)} ${esc(skill.why)} ${esc(skill.role)}</p>
+          ${b.burnout !== 'low' ? '<p class="tiny muted" style="margin:0">Good for tired days: listen on a walk or your commute, no screen needed.</p>' : ''}`;
+      }
+      case 'live': {
+        const sp = D.SPECIALISTS[S.profile.industry] || D.SPECIALISTS.other;
+        const ns = E.nextSession(tt) || { week: 1 };
+        const day = E.dateOf(tt, ns.week, 3);
+        return `<div class="person"><div class="avatar">${sp.initials}</div><div><strong>Next live class: ${E.fmtDate(day)}, 19:00</strong><div class="muted small">With ${esc(sp.name)} · up to 8 people · ${esc(les.title)}</div></div></div>
+          <p class="small" style="margin:14px 0">Bring your questions on “${esc(les.title.toLowerCase())}”. Classes are recorded for anyone who can't make it.</p>
+          <button class="btn btn-soft btn-sm" data-action="playDemo" data-kind="live" type="button">Join class (demo)</button>`;
+      }
+      default: return '';
+    }
+  }
+
+  function lessonFooter(c, les, L, fin) {
+    const tt = S.tt;
+    if (fin) {
+      return `<div class="card lesson-foot"><div><strong>Course complete 🎉</strong><p class="muted small" style="margin:0">You finished all ${L.total} lessons. Review any lesson, or add your next course.</p></div><span class="spacer"></span>
+        <button class="btn" data-action="openAddCourse" type="button">${icon('plus')} Add course</button></div>`;
+    }
+    const cur = L.list[L.done];
+    if (les.done) {
+      return `<div class="card card-flat lesson-foot"><p class="muted small" style="margin:0">✓ You've completed this lesson. Review it any time.</p><span class="spacer"></span>
+        <button class="btn btn-soft btn-sm" data-action="openLesson" data-idx="${L.done}" type="button">Go to your next lesson</button></div>`;
+    }
+    if (!les.current) {
+      return `<div class="card card-flat lesson-foot"><p class="muted small" style="margin:0">You're previewing a later lesson. Lessons are ticked off in order, and you're on Part ${cur.part} of “${esc(cur.title)}”.</p><span class="spacer"></span>
+        <button class="btn btn-soft btn-sm" data-action="openLesson" data-idx="${L.done}" type="button">Go to your next lesson</button></div>`;
+    }
+    const s = E.nextSessionOf(tt, c.id);
+    return `<div class="card card-accent lesson-foot">
+      <div><strong>Finished studying?</strong><p class="muted small" style="margin:0">${s ? `This ticks off your ${E.fmtSlot(tt, s)} session in your timetable.` : 'This ticks off your next session of this course.'}</p></div>
+      <span class="spacer"></span>
+      <button class="btn btn-good" data-action="finishLesson" data-id="${esc(c.id)}" type="button">✓ Finish this session (${les.minutes} min)</button>
+    </div>`;
+  }
+
+  // Studying the current lesson ticks off the course's next planned session in the timetable.
+  function finishLesson(courseId) {
+    const tt = S.tt;
+    const course = tt.courses.find((c) => c.id === courseId);
+    if (!course) return;
+    let s = E.nextSessionOf(tt, courseId);
+    let guard = 0;
+    while (!s && tt.weeksPlanned < tt.weeksNeeded && guard++ < 104) {
+      E.extendPlan(tt, S.calendar, tt.weeksPlanned + 1); // studying ahead of the planned window
+      s = E.nextSessionOf(tt, courseId);
+    }
+    if (!s) { toast('Nothing left to tick off: this course is complete.'); return; }
+    const L = E.lessonsFor(tt, course);
+    const les = L.list[L.done];
+    const when = E.fmtSlot(tt, s);
+    study = null;
+    quizPick = null;
+    markDone(s.id);
+    toast(`Lesson done: ${les.title}, part ${les.part}. Your ${when} session is ticked off.`);
+  }
+
+  /* ---------- Add course (keeps existing progress) ---------- */
+  function addPerWeek() {
+    const tt = S.tt;
+    const n = tt.courses.filter((c) => c.kind === 'course').length;
+    if (n && tt.pattern.length) return Math.max(1, Math.round(tt.pattern.length / n));
+    return Math.max(1, Math.round(((S.hours || 3) * 60) / tt.len));
+  }
+
+  function openAddCourse() {
+    const t = tier();
+    const tt = S.tt;
+    const P = E.progress(tt);
+    const mine = tt.courses.filter((c) => c.kind === 'course');
+    const active = mine.filter((c) => ((P.perCourse.find((x) => x.id === c.id) || {}).pct || 0) < 100);
+    if (active.length >= t.skills) {
+      closeModal();
+      toast(t.skills === 1 ? 'Silver covers 1 skill at a time. Finish your course first, or switch to Gold for up to 3.' : `${t.name} covers up to ${t.skills} skills at once. Switch package to add more.`);
+      return;
+    }
+    const taken = mine.map((c) => c.skillId);
+    const ranked = E.rankSkills(S.profile, S.goal, S.selfCheck).filter((s) => !taken.includes(s.id));
+    if (!ranked.some((s) => s.id === addPick)) addPick = null;
+    let body;
+    if (!addPick) {
+      body = ranked.length
+        ? `<p class="muted small">Ranked for your role and goal. Pick a skill, then a format.</p>
+          <div class="options">${ranked.map((s) => `<button type="button" class="option" data-action="addPick" data-id="${s.id}"><strong>${esc(s.name)}</strong><span>${esc(s.why)}</span><span>~${s.hoursNeeded} hrs to a useful level · included in ${t.name}</span></button>`).join('')}</div>`
+        : '<p class="muted">You\'re already enrolled in every recommended skill. Talk to a specialist for more ideas.</p>';
+    } else {
+      const sk = skillById(addPick);
+      const perWeek = addPerWeek();
+      const extra = (perWeek * tt.len) / 60;
+      const R = E.realisticHours(S.calendar, S.brainResult, t);
+      const total = (S.hours || 0) + extra;
+      const list = E.matchCourses(addPick, extra, S.brainResult, null, false);
+      body = `<p class="small" style="margin-bottom:8px"><button class="link-btn" data-action="addPick" data-id="" type="button">← Other skills</button></p>
+        <h3>${esc(sk.name)}</h3>
+        <div class="options">${list.map((c) => `<button type="button" class="option" data-action="addCourse" data-skill="${sk.id}" data-id="${c.id}">
+          <span class="row" style="gap:8px"><strong>${esc(c.name)}</strong>${c.styleMatch ? '<span class="chip chip-accent">Matches how you learn</span>' : ''}</span>
+          <span>${esc(c.formatLabel)} · ${c.hours} hrs · ~${c.weeks} weeks at ${perWeek} session${perWeek > 1 ? 's' : ''} a week</span></button>`).join('')}</div>
+        <div class="notice ${total > R.hours ? 'notice-warn' : 'notice-info'}" style="margin-top:14px"><p>Adds about <strong>${hrs(extra)}</strong> a week (${perWeek} × ${tt.len} min), so your plan becomes ${hrs(total)}/week. ${total > R.hours ? `That's above the ${hrs(R.hours)} your week can realistically hold, so burnout risk goes up.` : `That fits inside your realistic ${hrs(R.hours)}.`} Your other courses and progress stay as they are.</p></div>`;
+    }
+    showModal(`<h2 id="mTitle">Add a course</h2>${body}<div class="actions"><button class="btn btn-ghost" data-action="closeModal" type="button">Cancel</button></div>`);
+  }
+
+  function addCourseToPlan(skillId, courseId) {
+    const sk = skillById(skillId);
+    const course = sk && D.coursesFor(sk).find((x) => x.id === courseId);
+    if (!course) return;
+    const tt = S.tt;
+    const res = E.addCourse(tt, course, S.calendar, addPerWeek());
+    if (!res.ok) { toast(res.message); return; }
+    const cur = (E.nextSession(tt) || { week: 1 }).week;
+    E.extendPlan(tt, S.calendar, Math.min(tier().weeks + cur - 1, 520));
+    if (!S.selectedSkills.includes(sk.id)) S.selectedSkills.push(sk.id);
+    S.chosen[sk.id] = course.id;
+    S.hours = (S.hours || 0) + (res.perWeek * tt.len) / 60;
+    tt.hours = S.hours;
+    addPick = null;
+    closeModal();
+    log(`Added “${esc(course.name)}”: ${res.perWeek} session${res.perWeek > 1 ? 's' : ''} a week in free slots. Nothing else moved.`, 'good');
+    toast(`${course.name} added: ${res.perWeek} × ${tt.len}-min sessions a week. Your progress is unchanged.`);
+    render();
+  }
+
+  /* ======================================================================
+     Your data: profile, brain test, skills improving, mentors, calendars
+     ====================================================================== */
+  const START_LABEL = { 0: 'New to it', 35: 'Some knowledge', 70: 'Confident' };
+  const levelLabel = (v) => (v >= 85 ? 'Advanced' : v >= 60 ? 'Confident' : v >= 25 ? 'Developing' : 'Beginner');
+
+  function skillGrowth(P) {
+    return S.tt.courses.filter((c) => c.kind === 'course').map((c) => {
+      const pc = P.perCourse.find((x) => x.id === c.id) || { pct: 0, done: 0 };
+      const lvl = S.selfCheck[c.skillId];
+      const start = lvl === 2 ? 70 : lvl === 1 ? 35 : 0;
+      const now = Math.round(start + (pc.pct / 100) * (100 - start));
+      return { c, sk: skillById(c.skillId) || { name: c.name }, start, now, label: levelLabel(now), startLabel: START_LABEL[start], hours: pc.done / 60, pct: pc.pct };
+    });
+  }
+
+  function scrData() {
+    const t = tier();
+    const b = S.brainResult;
+    const P = E.progress(S.tt);
+    const ex = S.calExport || {};
+    const left = S.trial && !S.trial.paid ? Math.max(0, 7 - Math.floor((Date.now() - S.trial.start) / 86400000)) : 0;
+    const growth = skillGrowth(P);
+    const { startMatch, nowMatch } = payoff(P);
+    const score = b.burnoutScore ?? 0;
+
+    return `<section class="screen">
+      <div class="screen-head">
+        <p class="eyebrow">Your data</p>
+        <h1>Your personal data</h1>
+        <p>What CareerCompass knows about you and how it shapes your plan. In this demo it's stored only in this browser.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Profile</h3>
+          <ul class="summary-list">
+            <li><span>Name</span><span>${esc(S.user.name || '—')}</span></li>
+            <li><span>Email</span><span>${esc(S.user.email || '—')}</span></li>
+            <li><span>Role</span><span>${esc(S.profile.title || '—')}</span></li>
+            <li><span>Industry</span><span>${esc(industryLabel(S.profile.industry))}</span></li>
+            <li><span>Goal</span><span>${esc(goal().label)}</span></li>
+            <li><span>Package</span><span>${t.name} · ${monthly(t)}</span></li>
+            <li><span>Status</span><span>${!S.trial ? '—' : S.trial.paid ? 'Subscribed' : `Free trial · ${left} day${left === 1 ? '' : 's'} left`}</span></li>
+            ${S.trial ? `<li><span>Member since</span><span>${E.fmtDate(new Date(S.trial.start))}</span></li>` : ''}
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Brain test results</h3>
+          <div class="row" style="justify-content:space-between"><span class="muted small">Burnout risk</span><span class="chip ${BURN_CHIP[b.burnout]}">${b.burnout}</span></div>
+          <div class="meter" role="meter" aria-label="Burnout score" aria-valuemin="0" aria-valuemax="6" aria-valuenow="${score}"><span class="m-${b.burnout}" style="width:${Math.max(4, (score / 6) * 100)}%"></span></div>
+          <p class="tiny muted">Score ${score} of 6, from your energy after work, your sleep and how often work overwhelms you.</p>
+          <ul class="summary-list">
+            <li><span>Focus span</span><span>${b.focus} min</span></li>
+            <li><span>Session length</span><span>${b.session} min</span></li>
+            <li><span>Best focus time</span><span>${TIME_LABEL[b.time]}</span></li>
+            <li><span>Learns best with</span><span>${STYLE_LABEL[b.style]}</span></li>
+          </ul>
+          <h4 class="mini-h">How your plan uses this</h4>
+          <ul class="brief-list small">
+            <li>Every lesson is a ${b.session}-minute session${b.session < b.focus ? ', capped below your focus span because of burnout risk' : ''}.</li>
+            <li>${STYLE_LABEL[b.style]} ${b.style === 'live' ? 'comes' : 'come'} first in every lesson.</li>
+            <li>${b.time === 'varies' ? 'Sessions spread across the day wherever your calendar is free.' : `Sessions go in ${TIME_LABEL[b.time].toLowerCase()} where your calendar allows.`}</li>
+            <li>${BURN_TEXT[b.burnout]}</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row"><h3 style="margin:0">Skills you're improving</h3><span class="spacer"></span><span class="muted small">${hrs(P.done / 60)} studied in total</span></div>
+        ${growth.length ? `<div class="growth">${growth.map((g) => `<div class="growth-item">
+            <div class="row small"><strong>${esc(g.sk.name)}</strong><span class="spacer"></span><span class="chip ${g.now > g.start ? 'chip-good' : ''}">${g.label}</span></div>
+            <div class="level-bar" role="img" aria-label="${esc(g.sk.name)}: started at ${g.start}%, now ${g.now}%"><span class="lv-fill sw-c${g.c.color}" style="width:${g.now}%"></span><span class="lv-start" style="left:${g.start}%"></span></div>
+            <p class="tiny muted" style="margin:6px 0 0">Started: ${g.startLabel} → now ${g.label} · ${hrs(g.hours)} studied · ${g.pct}% of ${esc(g.c.name)}</p>
+          </div>`).join('')}</div>
+          <p class="tiny muted" style="margin:12px 0 0">The marker shows where you started, from your skills check. Levels rise as you finish sessions.</p>`
+          : '<p class="muted small">Add a course to start tracking skills.</p>'}
+        ${t.motivation !== 'basic'
+          ? `<div class="payoff-row"><span class="muted small">Estimated match to job postings for your goal: ${esc(goal().label.toLowerCase())}</span><span class="match">${P.pct > 0 ? `<span class="from">${startMatch}%</span>` : ''}${nowMatch}%</span></div><p class="tiny muted" style="margin:0">Illustrative estimate.</p>`
+          : '<p class="small muted" style="margin:14px 0 0"><span class="lock">Gold adds a job-match estimate that climbs as you learn.</span></p>'}
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Mentors you've contacted</h3>
+          ${S.mentors.length
+            ? `<ul class="plain-list mentors">${S.mentors.map((m) => `<li>
+                <div class="person"><div class="avatar sm">${esc(m.initials)}</div><div><strong>${esc(m.name)}</strong><div class="muted small">${esc(m.role)} · ${E.fmtDate(new Date(m.at))}</div></div></div>
+                <div class="chips" style="margin:8px 0"><span class="chip ${m.recorded ? 'chip-accent' : ''}">${m.recorded ? 'Recorded · AI notes' : 'Not recorded'}</span>${m.items && m.items.length ? `<span class="chip chip-good">${m.items.length} item${m.items.length > 1 ? 's' : ''} added</span>` : ''}</div>
+                ${m.notes && m.notes.length ? `<ul class="brief-list small">${m.notes.slice(0, 3).map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+                <p class="small muted" style="margin:6px 0 0">${m.items && m.items.length ? `Added to your timetable: ${esc(m.items.join('; '))}` : 'Nothing added to your timetable from this session.'}</p>
+              </li>`).join('')}</ul>
+              <div class="actions"><button class="btn btn-ghost btn-sm" data-action="bookSpecialist" type="button">Book another session</button></div>`
+            : `<p class="muted small">You haven't talked to a mentor yet. The specialists who design your courses can build a plan around your situation, and your AI pre-brief is sent automatically.</p>
+              <div class="actions"><button class="btn btn-soft btn-sm" data-action="bookSpecialist" type="button">Talk to a specialist</button></div>`}
+        </div>
+
+        <div class="card">
+          <h3>Calendars</h3>
+          <p class="muted small" style="margin-bottom:8px">Busy times imported from (demo):</p>
+          <div class="cal-rows">${D.CAL_SOURCES.map(calRow).join('')}</div>
+          <h4 class="mini-h">Your study plan in your calendar</h4>
+          <ul class="summary-list">
+            <li><span>Google Calendar</span><span>${ex.google ? 'Exported ' + shortDate(ex.google) : 'Not yet'}</span></li>
+            <li><span>Outlook</span><span>${ex.outlook ? 'Exported ' + shortDate(ex.outlook) : 'Not yet'}</span></li>
+          </ul>
+          <div class="actions"><button class="btn btn-ghost btn-sm" data-action="exportCal" data-provider="outlook" type="button">Add to Outlook</button><button class="btn btn-sm" data-action="exportCal" data-provider="google" type="button">Add to Google Calendar</button></div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  /* ---------- Calendar: real export + demo connect ---------- */
+  const ICS_NAME = 'careercompass-study-plan.ics';
+
+  function exportCal(provider) {
+    const tt = S.tt;
+    const n = CC.cal.count(tt);
+    if (!n) { toast('No upcoming sessions to export yet.'); return; }
+    CC.cal.download(CC.cal.ics(tt), ICS_NAME);
+    S.calExport = { ...(S.calExport || {}), [provider]: Date.now() };
+    log(`Exported ${n} study session${n === 1 ? '' : 's'} for ${PROVIDER[provider]} (.ics file).`, 'good');
+    render();
+    showModal(exportHelp(provider, n));
+  }
+
+  function exportHelp(p, n) {
+    const tt = S.tt;
+    const g = p === 'google';
+    const steps = g
+      ? ['Open Google Calendar\'s <strong>Import</strong> page with the button below.', `Choose <strong>${ICS_NAME}</strong> from your downloads, pick a calendar, then click <strong>Import</strong>.`]
+      : ['<strong>Outlook on your computer:</strong> open the downloaded file and Outlook adds the sessions.', '<strong>Outlook on the web:</strong> use the button below, choose <strong>Upload from file</strong>, pick the file and a calendar, then <strong>Import</strong>.'];
+    return `<h2 id="mTitle">Add your plan to ${PROVIDER[p]}</h2>
+      <p class="muted">We downloaded <strong>${ICS_NAME}</strong>: ${n} study session${n === 1 ? '' : 's'} across ${tt.weeksPlanned} planned week${tt.weeksPlanned === 1 ? '' : 's'}, each with a reminder 30 minutes before.</p>
+      <ol class="brief-list">${steps.map((s) => `<li>${s}</li>`).join('')}</ol>
+      <p class="muted small" style="margin-top:12px">Tip: import into a separate “CareerCompass” calendar, so it's easy to replace when your plan changes. Export again after replanning or when more weeks unlock.</p>
+      <div class="actions">
+        <button class="btn btn-ghost left" data-action="closeModal" type="button">Close</button>
+        <button class="btn btn-ghost" data-action="redownload" type="button">Download again</button>
+        <a class="btn" href="${g ? 'https://calendar.google.com/calendar/r/settings/export' : 'https://outlook.live.com/calendar/0/addcalendar'}" target="_blank" rel="noopener">Open ${PROVIDER[p]}</a>
+      </div>`;
+  }
+
+  function connectModal() {
+    const t = tier();
+    showModal(`<h2 id="mTitle">Connect your calendars</h2>
+      <p class="muted">CareerCompass only reads <strong>when</strong> you're busy, so study time lands in gaps that are really free.${S.hideDetails ? ' Private event details stay blacked out.' : ''}</p>
+      <div class="cal-rows">${D.CAL_SOURCES.map(calRow).join('')}</div>
+      <p class="muted tiny" style="margin-top:10px">Demo: connecting loads sample events instead of signing in. ${t.name} connects ${t.calendars >= 3 ? 'multiple calendars' : t.calendars + ' calendar' + (t.calendars > 1 ? 's' : '')}. Planned sessions that clash with new busy times move automatically.</p>
+      <div class="actions"><button class="btn" data-action="closeModal" type="button">Done</button></div>`);
   }
 
   /* ======================================================================
@@ -897,6 +1533,7 @@
     const n = E.addItems(S.tt, items, S.calendar);
     S.specialist.doneMsg = `${n} session${n === 1 ? '' : 's'} added from your specialist plan: ${items.map((i) => i.title).join('; ')}.`;
     log(`Specialist plan: added ${n} session${n === 1 ? '' : 's'}.`, 'info');
+    if (S.mentors[0]) S.mentors[0].items = (S.mentors[0].items || []).concat(items.map((i) => i.title));
     S.specialist.stage = 'done';
     S.viewWeek = Math.max(1, Math.min(...items.map((i) => i.startWeek || 1)));
   }
@@ -963,24 +1600,36 @@
       } else S.selectedSkills.push(ds.id);
       render();
     },
-    sync: (ds) => {
+    sync: (ds, el) => {
       const t = tier();
       const src = D.CAL_SOURCES.find((c) => c.id === ds.id);
       const cal = S.calendar;
+      const prov = src.provider === 'Google' ? PROVIDER.google : PROVIDER.outlook;
       if (S.synced.includes(ds.id)) {
         S.synced = S.synced.filter((x) => x !== ds.id);
         Object.keys(cal.src).forEach((k) => { if (cal.src[k] === ds.id) { delete cal.cells[k]; delete cal.labels[k]; delete cal.src[k]; } });
+        toast(`${prov} (${src.name}) disconnected.`);
       } else {
         if (S.synced.length >= t.calendars) {
-          toast(`${t.name} syncs ${t.calendars} calendar${t.calendars > 1 ? 's' : ''}. Switch package to sync more, or paint the rest manually.`);
+          toast(`${t.name} connects ${t.calendars} calendar${t.calendars > 1 ? 's' : ''}. Switch package to connect more, or paint the rest manually.`);
           return;
         }
         S.synced.push(ds.id);
         src.blocks.forEach((b) => { const k = E.key(b.d, b.h); cal.cells[k] = src.type; cal.labels[k] = b.label; cal.src[k] = src.id; });
-        toast(`${src.name} synced (sample data).`);
+        let msg = `${prov} connected: ${src.name} busy times imported (sample data).`;
+        if (S.tt) {
+          const moved = E.resolveClashes(S.tt, cal);
+          if (moved) {
+            msg += ` ${moved} session${moved > 1 ? 's' : ''} moved to free time.`;
+            log(`${prov} connected: ${moved} clashing session${moved > 1 ? 's' : ''} moved.`, 'warn');
+          }
+        }
+        toast(msg);
       }
-      S.hoursAdj = null; S.hours = null;
+      // Realistic hours change with the calendar, so Phase 3 asks again. After setup the plan keeps its hours.
+      if (route() === 'time' || !S.tt) { S.hoursAdj = null; S.hours = null; }
       render();
+      if (el && el.closest('#modal')) connectModal();
     },
     clearCal: () => { S.calendar = { cells: {}, labels: {}, src: {} }; S.synced = []; S.hoursAdj = null; S.hours = null; render(); },
     paintMode: (ds) => { S.paintMode = ds.mode; render(); },
@@ -1002,7 +1651,7 @@
       log(`AI built your timetable: ${S.tt.sessions.length} sessions over ${S.tt.weeksPlanned} week${S.tt.weeksPlanned > 1 ? 's' : ''}.`, 'good');
       closeModal();
       go('dashboard');
-      toast('Timetable built. Your sessions are in your calendar.');
+      toast('Timetable built. Add it to Google Calendar or Outlook from your dashboard.');
     },
     week: (ds) => { S.viewWeek = +ds.week; render(); },
     selectSession: (ds) => { S.selected = S.selected === +ds.id ? null : +ds.id; render(); },
@@ -1038,6 +1687,8 @@
       const rec = S.specialist.consent === 'record' && tier().recording;
       if (rec) { makeProposals(); S.specialist.stage = 'review'; }
       else { S.specialist.form = { title: '', minutes: 45, perWeek: 1, weeks: 4, startWeek: 1, cost: 0, ...S.specialist.form }; S.specialist.stage = 'questions'; }
+      const sp = D.SPECIALISTS[S.profile.industry] || D.SPECIALISTS.other;
+      S.mentors = [{ name: sp.name, role: sp.role, initials: sp.initials, at: Date.now(), recorded: rec, notes: rec ? S.specialist.notes.slice() : [], items: [] }, ...(S.mentors || [])].slice(0, 20);
       log(`Specialist session ended (${rec ? 'recorded' : 'not recorded'}).`, 'info');
       render();
     },
@@ -1048,6 +1699,29 @@
       addSpecialistItems(items);
       render();
     },
+    // Member area
+    toggleNav: () => { S.navCollapsed = !S.navCollapsed; render(); },
+    toTimetable: () => { const el = document.getElementById('timetable'); if (el) el.scrollIntoView({ block: 'start' }); },
+    openAddCourse: () => { addPick = null; openAddCourse(); },
+    addPick: (ds) => { addPick = ds.id || null; openAddCourse(); },
+    addCourse: (ds) => addCourseToPlan(ds.skill, ds.id),
+    openLesson: (ds) => {
+      study = { course: routeParam(), idx: +ds.idx };
+      quizPick = null;
+      render();
+      const card = document.querySelector('.lesson-card');
+      if (card) { const top = card.getBoundingClientRect().top; if (top < 70 || top > window.innerHeight - 120) card.scrollIntoView({ block: 'start' }); }
+    },
+    studyTab: (ds) => { studyTab = ds.id; render(); },
+    quiz: (ds) => { if (quizPick && quizPick.key === ds.key) return; quizPick = { key: ds.key, v: +ds.v }; render(); },
+    quizReset: () => { quizPick = null; render(); },
+    flip: (ds, el) => { const on = el.classList.toggle('is-flipped'); el.setAttribute('aria-pressed', String(on)); },
+    playDemo: (ds) => toast(ds.kind === 'live' ? 'Demo: live classes aren\'t part of the prototype.' : 'Demo: media playback isn\'t part of the prototype.'),
+    finishLesson: (ds) => finishLesson(ds.id),
+    exportCal: (ds) => exportCal(ds.provider),
+    redownload: () => { CC.cal.download(CC.cal.ics(S.tt), ICS_NAME); toast('Downloaded again.'); },
+    openConnect: () => connectModal(),
+    bookSpecialist: () => { S.specialist.stage = 'intro'; go('specialist'); },
     addForm: () => {
       const f = S.specialist.form;
       if (!String(f.title || '').trim()) { toast('Please enter what the specialist suggested.'); return; }
@@ -1112,6 +1786,6 @@
     toast(`Switched to ${t.name} (${monthly(t)})${notes.length ? ': ' + notes.join(', ') : ''}.`);
   }
 
-  const SCREENS = { onboarding: scrOnboarding, skills: scrSkills, time: scrTime, plan: scrPlan, dashboard: scrDashboard, specialist: scrSpecialist };
+  const SCREENS = { onboarding: scrOnboarding, skills: scrSkills, time: scrTime, plan: scrPlan, dashboard: scrDashboard, courses: scrCourses, data: scrData, specialist: scrSpecialist };
   render();
 })();

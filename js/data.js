@@ -158,6 +158,112 @@ window.CC = window.CC || {};
 
   const STYLE_FORMAT = { video: 'video', reading: 'video', project: 'project', live: 'live' };
 
+  // Course modules: 5 topics per skill as [title, key idea]. Lessons are split across these.
+  const TOPICS = {
+    prompt: [
+      ['How AI assistants think', 'Language models predict likely text, so clear context and examples beat clever wording.'],
+      ['Writing prompts that work', 'State the role, the task, the format you want and what good looks like.'],
+      ['Automating routine reports', 'Turn a repeated weekly task into a reusable prompt template with blanks to fill.'],
+      ['Checking AI output', 'Verify facts, numbers and sources before anything AI-made leaves your desk.'],
+      ['Building your AI workflow', 'Chain small, checked steps instead of asking for everything in one go.'],
+    ],
+    'python-data': [
+      ['Python basics for analysts', 'Variables, lists and loops are enough to replace most copy-paste work.'],
+      ['Loading data with pandas', 'A DataFrame is a spreadsheet you can transform with repeatable code.'],
+      ['Cleaning messy data', 'Fix types, missing values and duplicates first, because every later step depends on it.'],
+      ['Grouping & summarising', 'groupby + aggregate answers most "by month / by team" questions in one line.'],
+      ['Automating a weekly report', 'A script that loads, cleans, summarises and exports saves hours every week.'],
+    ],
+    ml: [
+      ['What machine learning is', 'A model learns patterns from past examples to predict new ones.'],
+      ['Training vs testing', 'Always judge a model on data it has never seen, or you will fool yourself.'],
+      ['Common model types', 'Start with simple models such as linear and tree-based ones before reaching for deep learning.'],
+      ['Measuring performance', 'Pick the metric that matches the business cost of each kind of mistake.'],
+      ['When not to use ML', 'If a clear rule works, or you lack good data, ML adds risk without value.'],
+    ],
+    'llm-apps': [
+      ['How LLM APIs work', 'You send messages and settings, and get text back. Everything else is built around that.'],
+      ['Designing a good prompt pipeline', 'Separate instructions, user input and retrieved data so each can be tested.'],
+      ['Adding your own data (RAG)', 'Retrieve the right documents first, then ask the model to answer from them.'],
+      ['Tools & structured output', 'Let the model call functions and return JSON so your app can act on results.'],
+      ['Shipping safely', 'Evaluate on real examples, add guardrails and log failures before launch.'],
+    ],
+    mlops: [
+      ['Cloud building blocks', 'Compute, storage and networking are rented services you assemble.'],
+      ['Packaging models', 'Containers make a model run the same on your laptop and in production.'],
+      ['Deploying an API', 'Wrap the model behind an endpoint with versioning and health checks.'],
+      ['Monitoring in production', 'Track latency, errors and data drift, because models decay quietly.'],
+      ['Automating the pipeline', 'CI/CD retrains, tests and redeploys so releases are boring and safe.'],
+    ],
+    cyber: [
+      ['The threat landscape', 'Most breaches start with people: phishing, weak passwords and over-shared access.'],
+      ['Passwords & MFA', 'Unique passwords plus multi-factor authentication stop most account takeovers.'],
+      ['Spotting phishing', 'Check the sender, the link target and the urgency before you click anything.'],
+      ['Securing AI tools', 'Never paste confidential data into tools your company has not approved.'],
+      ['Responding to incidents', 'Report fast, keep evidence and follow the playbook rather than fixing it alone.'],
+    ],
+    payments: [
+      ['How a card payment flows', 'Issuer, acquirer and network each take a step and a fee in every transaction.'],
+      ['Real-time payment rails', 'Instant account-to-account rails are replacing slower batch systems.'],
+      ['Wallets & tokenisation', 'Tokens replace card numbers so a leaked token is useless elsewhere.'],
+      ['Blockchain basics', 'A shared ledger trades speed for a record no single party can rewrite.'],
+      ['Regulation & risk', 'KYC, AML and data rules shape every payment product decision.'],
+    ],
+    'risk-ai': [
+      ['AI in risk & compliance', 'AI flags patterns humans miss, but people stay accountable for decisions.'],
+      ['Model risk management', 'Every model needs an owner, documentation, validation and review dates.'],
+      ['Explainability', 'Regulators expect you to explain why a model made a decision about a customer.'],
+      ['Bias & fairness checks', 'Test outcomes across customer groups before and after deployment.'],
+      ['Governance in practice', 'A simple model inventory and approval flow covers most expectations.'],
+    ],
+    'energy-data': [
+      ['Energy data sources', 'Meters, SCADA and weather feeds arrive at different speeds and quality.'],
+      ['Time-series basics', 'Resample, align and fill gaps before comparing any two signals.'],
+      ['Forecasting demand', 'Seasonality and weather explain most of the swing in energy demand.'],
+      ['Spotting anomalies', 'Compare against an expected baseline to catch faults early.'],
+      ['Reporting to decision-makers', 'Lead with the decision and the cost, then the chart that proves it.'],
+    ],
+    solar: [
+      ['Solar PV fundamentals', 'Output depends on irradiance, panel angle, temperature and shading.'],
+      ['Sizing a system', 'Match array size to the load profile and roof or site limits.'],
+      ['Battery storage basics', 'Batteries shift energy in time. Size them for the evening peak, not the whole day.'],
+      ['Grid connection', 'Inverters and protection settings must meet the local grid code.'],
+      ['Project economics', 'Payback, LCOE and incentives decide whether a project gets built.'],
+    ],
+    esg: [
+      ['Why carbon reporting matters', 'Investors and new disclosure rules now expect emissions data you can prove.'],
+      ['Scopes 1, 2 & 3', 'Direct, purchased-energy and value-chain emissions are counted separately.'],
+      ['Collecting activity data', 'Emissions = activity data × emission factor, so data quality is everything.'],
+      ['Reporting frameworks', 'GHG Protocol, ISSB and CSRD shape what you disclose and how.'],
+      ['Setting reduction targets', 'Targets need a baseline year, a path and owners for each lever.'],
+    ],
+    agile: [
+      ['Agile in one hour', 'Short cycles, visible work and regular feedback beat big up-front plans.'],
+      ['Running a sprint', 'Plan a small, valuable goal, then protect the team while they deliver it.'],
+      ['Great stand-ups & retros', 'Stand-ups surface blockers, and retros turn problems into one concrete change.'],
+      ['Managing stakeholders', 'Show working results early and often instead of status reports.'],
+      ['Leading without authority', 'Influence comes from clarity, reliability and helping others succeed.'],
+    ],
+    dataviz: [
+      ['Know your audience', 'Start with the decision your reader needs to make, not with the data you have.'],
+      ['Choosing the right chart', 'Compare with bars, show trends with lines, and avoid pies for anything precise.'],
+      ['Designing for clarity', 'Remove clutter, label directly and use colour only to highlight.'],
+      ['Telling a story with data', 'Context, conflict, resolution: guide the reader to the insight.'],
+      ['Building a useful dashboard', 'A good dashboard answers the same question every week at a glance.'],
+    ],
+  };
+
+  // Study material types. Order in the player is personalised by the brain test (engine.materialsFor).
+  const MATERIALS = {
+    video: { id: 'video', label: 'Video', desc: 'Short video lesson with chapters' },
+    reading: { id: 'reading', label: 'Reading notes', desc: 'Key ideas in a few minutes of reading' },
+    task: { id: 'task', label: 'Hands-on task', desc: 'Apply it to your real work' },
+    quiz: { id: 'quiz', label: 'Quiz', desc: 'Check you got it' },
+    cards: { id: 'cards', label: 'Flashcards', desc: 'Flip cards for quick revision' },
+    audio: { id: 'audio', label: 'Audio summary', desc: 'Listen on the go' },
+    live: { id: 'live', label: 'Live class', desc: 'Small-group class with a specialist' },
+  };
+
   const BRAIN = [
     {
       id: 'energy', q: 'After a typical workday, your energy is…', numeric: true,
@@ -220,5 +326,5 @@ window.CC = window.CC || {};
     },
   ];
 
-  CC.data = { DAYS, HOURS, INDUSTRIES, GOALS, TIERS, SKILLS, coursesFor, STYLE_FORMAT, BRAIN, SPECIALISTS, CAL_SOURCES };
+  CC.data = { DAYS, HOURS, INDUSTRIES, GOALS, TIERS, SKILLS, coursesFor, STYLE_FORMAT, TOPICS, MATERIALS, BRAIN, SPECIALISTS, CAL_SOURCES };
 })();

@@ -224,7 +224,7 @@ CC.engine = (() => {
     tt.pattern = slots.map((s, i) => ({ day: s.d, hour: s.h, course: seq[i] }));
     tt.shortfall = Math.max(0, need - slots.length);
     tt.courses = courses.map((c, i) => ({
-      id: c.id, skillId: c.skillId, name: c.name, totalMin: c.hours * 60, color: i % 3, kind: 'course',
+      id: c.id, skillId: c.skillId, name: c.name, format: c.format, totalMin: c.hours * 60, color: i % 3, kind: 'course',
     }));
     tt.weeksNeeded = Math.min(104, Math.max(...tt.courses.map((c, i) => {
       const perWeekMin = tt.pattern.filter((p) => p.course === i).length * len;
@@ -319,6 +319,137 @@ CC.engine = (() => {
     return added;
   }
 
+  /* ---------- Member area: courses, lessons & study materials ---------- */
+  const FORMAT_BY_SUFFIX = { express: 'video', project: 'project', live: 'live' };
+  // Older saved timetables have no `format`, so fall back to the course id suffix.
+  const formatOf = (c) => c.format || FORMAT_BY_SUFFIX[String(c.id).split('-').pop()] || 'video';
+
+  function nextSessionOf(tt, courseId) {
+    return tt.sessions.filter((s) => s.courseId === courseId && s.status === 'planned').sort((a, b) => sortKey(a) - sortKey(b))[0] || null;
+  }
+
+  // One lesson per timetable session, spread over the skill's 5 topics. The timetable stays the
+  // single source of truth: lesson j is done when j < completed sessions of the course.
+  function lessonsFor(tt, course) {
+    const topics = D.TOPICS[course.skillId] || [[course.name, '']];
+    const total = Math.max(1, Math.ceil(course.totalMin / Math.max(1, tt.len)));
+    const done = Math.min(total, tt.sessions.filter((s) => s.courseId === course.id && s.status === 'done').length);
+    const per = Math.ceil(total / topics.length);
+    const list = [];
+    for (let j = 0; j < total; j++) {
+      const m = Math.min(topics.length - 1, Math.floor(j / per));
+      list.push({
+        idx: j, module: m, title: topics[m][0], idea: topics[m][1],
+        part: j - m * per + 1, parts: Math.min(per, total - m * per),
+        minutes: Math.min(tt.len, course.totalMin - j * tt.len),
+        done: j < done, current: j === done,
+      });
+    }
+    return { list, done, total, topics };
+  }
+
+  const STYLE_ORDER = {
+    video: ['video', 'cards', 'quiz', 'reading', 'task', 'audio'],
+    reading: ['reading', 'cards', 'quiz', 'video', 'task', 'audio'],
+    project: ['task', 'video', 'quiz', 'reading', 'cards', 'audio'],
+    live: ['live', 'video', 'task', 'quiz', 'reading', 'cards', 'audio'],
+  };
+  const STYLE_WHY = {
+    video: 'you learn best by watching videos',
+    reading: 'you learn best with reading & notes',
+    project: 'you learn best with hands-on projects',
+    live: 'you learn best through live discussion',
+  };
+  const FORMAT_NATIVE = { video: 'video', project: 'task', live: 'live' };
+
+  // Material tabs ordered for this person's brain test and this course's format.
+  function materialsFor(brain, course) {
+    const style = STYLE_ORDER[brain.style] ? brain.style : 'video';
+    let order = STYLE_ORDER[style].slice();
+    const native = FORMAT_NATIVE[formatOf(course)];
+    if (native && order.indexOf(native) !== 0) {
+      order = order.filter((x) => x !== native);
+      order.splice(1, 0, native);
+    }
+    const tired = brain.burnout && brain.burnout !== 'low';
+    return order.map((id, i) => {
+      let why = '';
+      if (i === 0) why = `Recommended first because ${STYLE_WHY[style]}.`;
+      else if (id === native) why = 'This is the core format of the course you chose.';
+      else if (tired && (id === 'audio' || id === 'cards')) why = `Low-energy option: your brain test shows ${brain.burnout} burnout risk, so this is lighter for tired days.`;
+      return { ...D.MATERIALS[id], recommended: i === 0, lowEnergy: !!tired && (id === 'audio' || id === 'cards'), why };
+    });
+  }
+
+  // Add a course to an existing timetable without touching other courses or progress.
+  function addCourse(tt, course, calendar, perWeek) {
+    const idx = tt.courses.length;
+    const color = tt.courses.filter((c) => c.kind === 'course').length % 3;
+    const rest = restDayFor(tt.brain);
+    const used = new Set(tt.pattern.map((p) => key(p.day, p.hour)));
+    const picked = [];
+    for (let k = 0; k < perWeek; k++) {
+      let best = null;
+      for (let d = 0; d < 7; d++) {
+        if (d === rest) continue;
+        const onDay = tt.pattern.filter((p) => p.day === d).length + picked.filter((p) => p.d === d).length;
+        for (const h of HOURS) {
+          if (isBusy(calendar, d, h) || used.has(key(d, h))) continue;
+          if (picked.some((p) => p.d === d && Math.abs(p.h - h) < 2)) continue;
+          const score = prefScore(d, h, tt.brain) - onDay * 1.5;
+          if (!best || score > best.score) best = { d, h, score };
+        }
+      }
+      if (!best) break;
+      picked.push(best);
+      used.add(key(best.d, best.h));
+    }
+    if (!picked.length) return { ok: false, message: 'Your calendar has no free slot left for another course. Free up some time first.' };
+
+    tt.courses.push({ id: course.id, skillId: course.skillId, name: course.name, format: course.format, totalMin: course.hours * 60, color, kind: 'course' });
+    picked.sort((a, b) => (a.d - b.d) || (a.h - b.h));
+    picked.forEach((p) => tt.pattern.push({ day: p.d, hour: p.h, course: idx }));
+
+    // Fill the weeks that are already planned, starting after the next planned session.
+    const ns = nextSession(tt);
+    const fromWeek = ns ? ns.week : tt.weeksPlanned + 1;
+    const after = (w, d, h) => !ns || w > ns.week || d * 100 + h > ns.day * 100 + ns.hour;
+    let rem = course.hours * 60;
+    let added = 0;
+    for (let w = fromWeek; w <= tt.weeksPlanned && rem > 0; w++) {
+      for (const p of picked) {
+        if (rem <= 0) break;
+        let day = p.d;
+        let hour = p.h;
+        if (occupied(tt, w).has(key(day, hour)) || !after(w, day, hour)) {
+          const alt = bestFree(tt, calendar, w, w === fromWeek && ns ? { day: ns.day, hour: ns.hour } : null);
+          if (!alt) continue;
+          day = alt.day; hour = alt.hour;
+        }
+        const minutes = Math.min(tt.len, rem);
+        tt.sessions.push({ id: tt.nextId++, courseId: course.id, week: w, day, hour, minutes, status: 'planned' });
+        rem -= minutes;
+        added++;
+      }
+    }
+    const lastFilled = Math.max(tt.weeksPlanned, fromWeek - 1);
+    const moreWeeks = rem > 0 ? Math.ceil(rem / (picked.length * tt.len)) : 0;
+    tt.weeksNeeded = Math.min(104, Math.max(tt.weeksNeeded, lastFilled + moreWeeks));
+    return { ok: true, perWeek: picked.length, added };
+  }
+
+  // After importing new busy times, move any planned session that now clashes.
+  function resolveClashes(tt, calendar) {
+    let moved = 0;
+    tt.sessions.filter((s) => s.status === 'planned' && isBusy(calendar, s.day, s.hour)).forEach((s) => {
+      for (let w = s.week; w <= s.week + 4; w++) {
+        const slot = bestFree(tt, calendar, w, null, s.id);
+        if (slot) { Object.assign(s, { week: w, day: slot.day, hour: slot.hour, moved: true }); moved++; return; }
+      }
+    });
+    return moved;
+  }
+
   /* ---------- Tracking ---------- */
   function progress(tt) {
     const total = tt.courses.reduce((a, c) => a + c.totalMin, 0);
@@ -334,5 +465,6 @@ CC.engine = (() => {
     key, sortKey, brainResult, rankSkills, realisticHours, matchCourses, buildTimetable, extendPlan, emptyTimetable,
     nextSession, replan, moveSession, lighten, addItems, progress, lastWeek, endWeek, endDate, dateOf,
     fmtDate, fmtSlot, courseOf, isBusy,
+    formatOf, nextSessionOf, lessonsFor, materialsFor, addCourse, resolveClashes,
   };
 })();
