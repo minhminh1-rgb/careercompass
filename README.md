@@ -32,7 +32,7 @@ Progress is saved in your browser; **Reset demo** (top right) clears it.
 |---|---|
 | `index.html` | Landing / pitch page |
 | `app.html` | App shell (hash-routed screens) |
-| `css/styles.css` | Design tokens (light + dark mode), layout, components |
+| `css/styles.css` | Design tokens (brand palette: #DDDCDB grey, #FD7B41 orange, #EDBF9B peach, #3C4044 charcoal; light only), layout, components |
 | `js/data.js` | Mock data: skills, course topics, study materials, brain test, packages, sample calendars |
 | `js/engine.js` | Simulated AI: skill ranking, realistic hours, course matching, timetable building, replanning, lessons & material order, adding courses |
 | `js/calendar.js` | Real calendar export: `.ics` file + Google Calendar / Outlook one-click links (no API keys) |
