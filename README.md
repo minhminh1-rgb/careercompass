@@ -39,7 +39,7 @@ Progress is saved in your browser; **Reset demo** (top right) clears it.
 | `js/app.js` | State (localStorage), screens (setup phases + sidebar member area), interactions |
 | `js/landing.js` | Landing page only: starts Locomotive Scroll (smooth scroll, hero parallax, fade-up reveals). Skipped when the visitor prefers reduced motion |
 | `vendor/locomotive-scroll/` | Locomotive Scroll 4.1.4 (MIT), copied from its GitHub repo so the demo still works offline |
-| `assets/hero.jpg` | Hero photo for the tilted card on the landing page. **Not included yet**: save a portrait photo (about 4:5) under this name; a placeholder shows until then |
+| `assets/hero.jpg`, `assets/hero-woman.png` | Hero photo for the tilted card on the landing page, in two layers: `hero.jpg` fills the card and the transparent cutout `hero-woman.png` sits on top, poking out past the top-left edge |
 
 ## Notes
 - Job-posting percentages on Platinum skill cards and the "payoff insight" are **illustrative demo data**, labelled as such in the UI.
