@@ -11,7 +11,7 @@ No install or build step. To share online, drag the `ybc` folder onto https://ap
 Progress is saved in your browser; **Reset demo** (top right) clears it.
 
 ## 3-minute demo script for judges
-1. **Landing page**: problem stats (WEF 2025, Kahoot 2024), pain points → solution, pricing tiers, B2B2C expansion.
+1. **Landing page**: problem stats (WEF 2025, Kahoot 2024), pain points → solution, pricing tiers.
 2. **Phase 1 Onboarding**: click **Use demo persona** (Linh, fintech data analyst aiming for promotion) → analysis summary with brain-test results → **Start 1-week free trial**.
 3. **Phase 2 Skills**: 5 AI-ranked skills with *why it matters*, time and cost. Pick one (Gold allows up to 3).
 4. **Phase 3 Time & package**: the package card shows each tier's price (click one to switch). Click **Connect** on Outlook (work) + Google Calendar (family). Watch *"You realistically have X hrs/week"* and its breakdown (commitments, rest, buffer, burnout guard). Try painting busy blocks on the grid. Toggle "black out private details".
@@ -37,6 +37,9 @@ Progress is saved in your browser; **Reset demo** (top right) clears it.
 | `js/engine.js` | Simulated AI: skill ranking, realistic hours, course matching, timetable building, replanning, lessons & material order, adding courses |
 | `js/calendar.js` | Real calendar export: `.ics` file + Google Calendar / Outlook one-click links (no API keys) |
 | `js/app.js` | State (localStorage), screens (setup phases + sidebar member area), interactions |
+| `js/landing.js` | Landing page only: starts Locomotive Scroll (smooth scroll, hero parallax, fade-up reveals). Skipped when the visitor prefers reduced motion |
+| `vendor/locomotive-scroll/` | Locomotive Scroll 4.1.4 (MIT), copied from its GitHub repo so the demo still works offline |
+| `assets/hero.jpg` | Hero photo for the tilted card on the landing page. **Not included yet**: save a portrait photo (about 4:5) under this name; a placeholder shows until then |
 
 ## Notes
 - Job-posting percentages on Platinum skill cards and the "payoff insight" are **illustrative demo data**, labelled as such in the UI.

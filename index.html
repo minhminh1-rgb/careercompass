@@ -8,64 +8,72 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="vendor/locomotive-scroll/locomotive-scroll.min.css">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
-<header class="site-nav">
-  <div class="container">
-    <a class="brand" href="#top" aria-label="CareerCompass home">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13.5" fill="none" stroke="currentColor" stroke-width="2.5"/><g transform="rotate(40 16 16)"><path class="needle-n" d="M16 5.5 19 16h-6z"/><path class="needle-s" d="M16 26.5 13 16h6z"/></g><circle cx="16" cy="16" r="1.8" fill="currentColor"/></svg>
-      CareerCompass
-    </a>
-    <nav aria-label="Sections">
-      <a href="#problem">Problem</a>
-      <a href="#solution">Solution</a>
-      <a href="#how">How it works</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#expansion">Roadmap</a>
-    </nav>
-    <a class="btn btn-sm" href="app.html#onboarding">Try the demo</a>
-  </div>
-</header>
+<div class="lp" data-scroll-container>
 
-<main id="top">
+<main>
   <!-- HERO -->
-  <section class="hero">
-    <div class="container hero-grid">
-      <div>
-        <p class="eyebrow">Upskilling for busy workers</p>
-        <h1>Learn the skills the AI era demands, <em>without burning out.</em></h1>
-        <p class="lead">CareerCompass picks the skills that matter for your job, works out the hours you <strong>really</strong> have, builds your timetable, and replans automatically when work or life gets in the way.</p>
-        <div class="hero-cta">
-          <a class="btn btn-lg" href="app.html#onboarding">Start 1-week free trial</a>
-          <a class="btn btn-lg btn-ghost" href="#how">See how it works</a>
-        </div>
-        <p class="hero-note">For workers in AI &amp; software, fintech and green energy · Interactive MVP demo</p>
-      </div>
+  <section class="hero" id="top" data-scroll-section>
+    <div class="hero-frame">
+      <svg class="hero-arcs" viewBox="0 0 640 520" aria-hidden="true" data-scroll data-scroll-speed="-1">
+        <circle cx="640" cy="640" r="560" fill="none" stroke="#EDBF9B" stroke-width="52"/>
+        <circle cx="640" cy="640" r="440" fill="none" stroke="#FD7B41" stroke-width="52"/>
+        <circle cx="640" cy="640" r="320" fill="none" stroke="#DDDCDB" stroke-width="52"/>
+      </svg>
+      <svg class="hero-arc-dim" viewBox="0 0 360 240" aria-hidden="true" data-scroll data-scroll-speed="-2">
+        <circle cx="-40" cy="420" r="360" fill="none" stroke="#474B50" stroke-width="60"/>
+      </svg>
 
-      <div class="mock" aria-hidden="true">
-        <div class="card">
-          <p class="eyebrow">Your week, analysed</p>
-          <div class="mock-hours"><b>6.5</b><span class="muted">hrs / week you realistically have</span></div>
-          <div class="chips"><span class="chip">−45 h work</span><span class="chip">−15 h family</span><span class="chip">−15% buffer</span><span class="chip chip-warn">burnout guard</span></div>
-          <div class="mock-week">
-            <div class="w"></div><div class="w"></div><div class="w"></div><div class="w"></div><div class="w"></div><div></div><div></div>
-            <div class="s0"></div><div></div><div class="s1"></div><div class="s0 mv"></div><div></div><div class="s1"></div><div></div>
-            <div></div><div class="s1"></div><div></div><div></div><div></div><div class="s0"></div><div></div>
-          </div>
-          <div class="mock-days"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+      <header class="site-nav">
+        <div class="container">
+          <a class="brand" href="#top" data-scroll-to aria-label="CareerCompass home">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13.5" fill="none" stroke="currentColor" stroke-width="2.5"/><g transform="rotate(40 16 16)"><path class="needle-n" d="M16 5.5 19 16h-6z"/><path class="needle-s" d="M16 26.5 13 16h6z"/></g><circle cx="16" cy="16" r="1.8" fill="currentColor"/></svg>
+            CareerCompass
+          </a>
+          <nav aria-label="Sections">
+            <a href="#problem" data-scroll-to>Problem</a>
+            <a href="#solution" data-scroll-to>Solution</a>
+            <a href="#how" data-scroll-to>How it works</a>
+            <a href="#pricing" data-scroll-to>Pricing</a>
+          </nav>
+          <a class="btn btn-sm" href="app.html#onboarding">Try the demo</a>
         </div>
-        <div class="card mock-float">
-          <strong>Missed Tuesday? No problem.</strong>
-          <div class="muted">Moved to Thu 19:00. You're still on track to finish by 18 Dec.</div>
+      </header>
+
+      <div class="container hero-grid">
+        <div class="hero-text">
+          <p class="eyebrow">Upskilling for busy workers</p>
+          <h1>Learn the skills <em>the AI era demands</em></h1>
+          <p class="lead">CareerCompass picks the skills that matter for your job, works out the hours you <strong>really</strong> have, builds your timetable, and replans automatically when work or life gets in the way.</p>
+          <div class="hero-cta">
+            <a class="btn btn-lg" href="app.html#onboarding">Start 1-week free trial</a>
+            <a class="btn btn-lg btn-ghost" href="#how" data-scroll-to>See how it works</a>
+          </div>
+          <p class="hero-note">For workers in AI &amp; software, fintech and green energy · Interactive MVP demo</p>
+
+          <div class="hero-tiles">
+            <div data-scroll data-scroll-speed="0.6"><div class="hero-tile"><b>59%</b><span>of workers need reskilling by 2030</span></div></div>
+            <div data-scroll data-scroll-speed="1.1"><div class="hero-tile"><b>47%</b><span>say time is their main barrier</span></div></div>
+          </div>
+        </div>
+
+        <div class="hero-photo-wrap" data-scroll data-scroll-speed="1.6">
+          <!-- Hero photo in two layers: assets/hero.jpg fills the card, assets/hero-woman.png (transparent cutout) sits on top and pokes out past the top-left edge. -->
+          <figure class="hero-photo">
+            <img class="hero-photo-bg" src="assets/hero.jpg" alt="" onerror="this.remove()">
+            <div class="hero-cut"><img src="assets/hero-woman.png" alt="A woman at her desk looking out of the window" onerror="this.remove()"></div>
+          </figure>
         </div>
       </div>
     </div>
   </section>
 
   <!-- PROBLEM -->
-  <section class="section section-alt" id="problem">
+  <section data-scroll-section class="section section-alt" id="problem">
     <div class="container">
       <div class="section-head">
         <p class="eyebrow">The problem</p>
@@ -91,7 +99,7 @@
   </section>
 
   <!-- PAIN POINTS + SOLUTION -->
-  <section class="section" id="solution">
+  <section data-scroll-section class="section" id="solution">
     <div class="container">
       <div class="section-head">
         <p class="eyebrow">Root causes → our solution</p>
@@ -103,13 +111,6 @@
         <article class="card">
           <span class="chip chip-bad">Pain point 1</span>
           <h3 style="margin-top:12px">"I don't have time to find and take courses"</h3>
-          <div class="why-chain">
-            <span>Can't start learning</span><i>why?</i>
-            <span>Finding &amp; comparing courses takes too much effort</span><i>why?</i>
-            <span>Too exhausted</span><i>why?</i>
-            <span>Work drains energy</span><i>why?</i>
-            <span>Many tasks, 9 to 5</span>
-          </div>
           <h4 class="small" style="margin-top:18px">How CareerCompass fixes it</h4>
           <ul class="fix-list">
             <li>AI picks the skills and courses, so there's no searching or comparing</li>
@@ -121,13 +122,6 @@
         <article class="card">
           <span class="chip chip-bad">Pain point 2</span>
           <h3 style="margin-top:12px">"I enrol, fall behind, then quit"</h3>
-          <div class="why-chain">
-            <span>Enrol then quit</span><i>why?</i>
-            <span>Fall behind schedule</span><i>why?</i>
-            <span>Keep delaying</span><i>why?</i>
-            <span>No time + exhausted</span><i>why?</i>
-            <span>Job takes most of the day</span>
-          </div>
           <h4 class="small" style="margin-top:18px">How CareerCompass fixes it</h4>
           <ul class="fix-list">
             <li>Removes the effort of deciding what to do next</li>
@@ -136,11 +130,36 @@
           </ul>
         </article>
       </div>
+
+      <div class="lp-product">
+        <div>
+          <p class="eyebrow">Inside the product</p>
+          <h3>A timetable sized to the hours you actually have</h3>
+          <p class="muted">CareerCompass reads your calendars, takes out work, family, rest and a safety buffer, and plans sessions only in what is left. Miss one and it moves, so you stay on track.</p>
+        </div>
+        <div class="mock" aria-hidden="true">
+          <div class="card">
+            <p class="eyebrow">Your week, analysed</p>
+            <div class="mock-hours"><b>6.5</b><span class="muted">hrs / week you realistically have</span></div>
+            <div class="chips"><span class="chip">−45 h work</span><span class="chip">−15 h family</span><span class="chip">−15% buffer</span><span class="chip chip-warn">burnout guard</span></div>
+            <div class="mock-week">
+              <div class="w"></div><div class="w"></div><div class="w"></div><div class="w"></div><div class="w"></div><div></div><div></div>
+              <div class="s0"></div><div></div><div class="s1"></div><div class="s0 mv"></div><div></div><div class="s1"></div><div></div>
+              <div></div><div class="s1"></div><div></div><div></div><div></div><div class="s0"></div><div></div>
+            </div>
+            <div class="mock-days"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+          </div>
+          <div class="card mock-float">
+            <strong>Missed Tuesday? No problem.</strong>
+            <div class="muted">Moved to Thu 19:00. You're still on track to finish by 18 Dec.</div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- HOW IT WORKS -->
-  <section class="section section-alt" id="how">
+  <section data-scroll-section class="section section-alt" id="how">
     <div class="container">
       <div class="section-head">
         <p class="eyebrow">How it works</p>
@@ -157,24 +176,8 @@
     </div>
   </section>
 
-  <!-- PERSONA -->
-  <section class="section">
-    <div class="container">
-      <div class="section-head">
-        <p class="eyebrow">Who it's for</p>
-        <h2>Busy, ambitious workers in the fastest-changing fields</h2>
-        <p>WEF data points to AI, software and green energy as the areas where skills demand is moving fastest, so that's where we start.</p>
-      </div>
-      <div class="persona">
-        <div class="card"><dl><dt>Geographic</dt><dd>International</dd><dt>Age</dt><dd>18–60</dd><dt>Income &amp; class</dt><dd>Middle income, middle class</dd></dl></div>
-        <div class="card"><dl><dt>Fields</dt><dd>AI &amp; software development</dd><dd>Fintech</dd><dd>Green &amp; energy engineering</dd></dl></div>
-        <div class="card"><dl><dt>Behaviour</dt><dd>Actively looks for courses to upskill</dd><dd>Often demotivated: finding courses takes too long and they fall behind schedule because they're busy</dd></dl></div>
-      </div>
-    </div>
-  </section>
-
   <!-- PRICING -->
-  <section class="section section-alt" id="pricing">
+  <section data-scroll-section class="section" id="pricing">
     <div class="container">
       <div class="section-head">
         <p class="eyebrow">Packages</p>
@@ -229,31 +232,8 @@
     </div>
   </section>
 
-  <!-- EXPANSION -->
-  <section class="section" id="expansion">
-    <div class="container">
-      <div class="grid-2" style="align-items:center">
-        <div>
-          <p class="eyebrow">Expansion plan · B2B2C</p>
-          <h2>Next: training whole workforces for businesses that must reinvent themselves</h2>
-          <p class="muted">Governments are pushing for greener production, so many companies must retrain employees to make that transition. <strong>52% of CEOs</strong> say a lack of skills in their workforce makes it harder to reinvent their business model (PwC, 2024).</p>
-          <ul class="fix-list">
-            <li>Discovery meeting with the business: headcount, skills needed, course length, time per day/week</li>
-            <li>The same individual journey for each employee: brain test, calendar, progress tracking, replanning</li>
-            <li>A skills library built by mentors + AI makes every new course faster to design (updated regularly)</li>
-            <li>Covers all fields, including manual labour</li>
-          </ul>
-        </div>
-        <div class="card">
-          <h3>Why later, not now?</h3>
-          <p class="muted">B2B2C needs a much larger and more varied team of experts and a stronger AI model. That takes capital, so we'll first build revenue from individual subscriptions and specialist sessions to fund it. Business pricing will be set separately.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- CTA -->
-  <section class="section" style="padding-top:0">
+  <section data-scroll-section class="section" style="padding-top:0">
     <div class="container">
       <div class="cta-band">
         <h2>See your realistic plan in under 3 minutes</h2>
@@ -264,18 +244,15 @@
   </section>
 </main>
 
-<footer class="site-footer">
+<footer class="site-footer" data-scroll-section>
   <div class="container">
     <p><strong>CareerCompass</strong>: competition MVP prototype. AI behaviour, calendars and payments are simulated.</p>
-    <h4>Sources</h4>
-    <ol>
-      <li>World Economic Forum (2025). <em>Future of Jobs Report 2025: 78 million new job opportunities by 2030 but urgent upskilling needed to prepare workforces.</em> <a href="https://www.weforum.org/media/future-of-jobs-report-2025-78-million-new-job-opportunities-by-2030-but-urgent-upskilling-needed-to-prepare-workforces/" rel="noopener" target="_blank">weforum.org</a> [Accessed 20 Oct. 2026].</li>
-      <li>Kahoot (2024). <em>Survey: 46% of workers fear skill obsolescence within 5 years as AI reshapes the workplace.</em> <a href="https://www.prnewswire.com/news-releases/survey-46-of-workers-fear-skill-obsolescence-within-5-years-as-ai-reshapes-the-workplace-302265374.html" rel="noopener" target="_blank">prnewswire.com</a> [Accessed 20 Oct. 2026].</li>
-      <li>PwC (2024). <em>PwC's 27th Annual Global CEO Survey: Thriving in an age of continuous reinvention.</em> <a href="https://www.pwc.nl/nl/actueel-publicaties/assets/pdfs/pwc-27e-ceo-survey.pdf" rel="noopener" target="_blank">pwc.nl</a> [Accessed 5 Nov. 2026].</li>
-      <li>WealthPercentile (2026). <em>What income is middle class? Ranges for 77 countries.</em> <a href="https://wealthpercentile.com/blog/middle-class-income-by-country/" rel="noopener" target="_blank">wealthpercentile.com</a> [Accessed 5 Nov. 2026].</li>
-    </ol>
   </div>
 </footer>
 
+</div>
+
+<script src="vendor/locomotive-scroll/locomotive-scroll.min.js"></script>
+<script src="js/landing.js"></script>
 </body>
 </html>

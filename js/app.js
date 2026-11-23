@@ -231,7 +231,7 @@
     const st = S.onboardStep;
     const body = [obSignup, obProfile, obGoal, obSkillCheck, obBrain, obSummary][st]();
     return `<section class="screen narrow">
-      <div class="screen-head">
+      <div class="screen-head screen-hero">
         <p class="eyebrow">Phase 1 · Onboarding · Step ${st + 1} of 6</p>
         <h1>${OB_TITLES[st]}</h1>
         <p>${OB_SUBS[st]}</p>
